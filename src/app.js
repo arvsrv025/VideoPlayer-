@@ -4,6 +4,7 @@ import cors from "cors"
 const app=express()
 
 // Middleware ...all are created using app.use
+
 app.use(cors(
     {
         origin:process.env.CORS_ORIGIN,
@@ -18,6 +19,15 @@ app.use(express.urlencoded({extended:true,limit:"16kb"}));
 app.use(express.static("public"))
 //to accept the cookies from the website about the user and send the cookie set 
 app.use(cookieParser())
+
+
+//ROUTES
+//import router
+import userRouter from './Routes/user.routes.js'
+
+//routes declaration
+
+app.use('/api/v1/users',userRouter)
 
 
 export {app}
