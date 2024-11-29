@@ -35,5 +35,6 @@ const VideoSchema=new Schema(
     },
     {timestamps:true}
 )
+//why are we using Paginate import
 VideoSchema.plugin(mongooseAggregatePaginate)
 export const Video=mongoose.model("Video",VideoSchema)
