@@ -222,7 +222,7 @@ const updateAccountDetails=asyncHandler(async(req,res)=>{
     if(!fullName || !email){
         throw new APIError(400,"All fields are required")
     }
-    const user=User.findByIdAndUpdate(req.user?._id,
+    const user=await User.findByIdAndUpdate(req.user?._id,
         {
             $set:{
                 fullName:fullName,
@@ -248,7 +248,7 @@ const updateUserAvatar=asyncHandler(async(req,res)=>{
     if(!avatar){
         throw new APIError(400,"Avatar file not uploaded")
     }
-    const user=User.findByIdAndUpdate(
+    const user=await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set:{
@@ -270,7 +270,7 @@ const updateUserImage=asyncHandler(async(req,res)=>{
     if(!cover){
         throw new APIError(400,"cover file not uploaded")
     }
-    const user=User.findByIdAndUpdate(
+    const user=await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set:{
@@ -284,6 +284,83 @@ const updateUserImage=asyncHandler(async(req,res)=>{
 })
 
 
+const getUserChannelProfile=asyncHandler(async(req,res)=>{
+    //function to find the details of subriced channel and subscribers list along with follwed or not button
+    const {username}=req.params
+    if(!username?.trim()){
+        throw new APIError(400,"username is missing")
+    }
+    //in aggregation pipeline the output of one pieline is fed into another and this pass on objects 
+    //through one pipeline to another
+    const channel=await User.aggregate([
+        //matching the username from subscribers and the username given
+        {
+            $match:{
+                username:username?.toLowerCase()
+            }
+        },
+        //lookup helps to create new table/object array when subscribers on local field from that table
+        //match foreign field as channel from same subscribers table
+        {
+            $lookup:{
+                from:"subscriptions",
+                localField:"_id",
+                foreignField:"channel",
+                as:"subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        //above was to count subscribedTo
+        {
+            //adds feilds into the piplien created
+            $addFields:{
+                subscribersCount:{
+                    $size:"$subscribers"
+                },
+                channelsSubscribedTo:{
+                    $size:"$subscribedTo"
+                },
+                isSubscribed:{
+                    $cond:{
+                        if:{$in:[req.user?._id,"$subscribers.subscriber"]},
+                        then :true,
+                        else :false
+                    }
+                }
+            }
+        },
+        //project selects the properties that you want to return 
+        //and pass throgh the final pipeline
+        {  $project:{
+            fullName:1,
+            userName:1,
+            subscribersCount:1,
+            isSubscribed:1,
+            avatar:1,
+            coverImage:1,
+            email:1,
+
+        }
+
+        }
+    ])
+    if(!channel?.length){
+        throw new APIError(404,"Channel API not working")
+    }
+     
+
+    return res.status(200)
+             .json(new APIResponse(200,channel[0],"User channel fetch was successfull"))
+    
+})
+
 export {registerUser,
         loginUser,
         logoutUser,
@@ -292,5 +369,6 @@ export {registerUser,
         getCurrentUser,
         updateAccountDetails,
         updateUserAvatar,
-        updateUserImage
+        updateUserImage,
+        getUserChannelProfile
     }
