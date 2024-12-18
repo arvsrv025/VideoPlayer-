@@ -289,7 +289,7 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
     const {username}=req.params
     if(!username?.trim()){
         throw new APIError(400,"username is missing")
-    }
+    } 
     //in aggregation pipeline the output of one pieline is fed into another and this pass on objects 
     //through one pipeline to another
     const channel=await User.aggregate([
@@ -338,7 +338,8 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
         },
         //project selects the properties that you want to return 
         //and pass throgh the final pipeline
-        {  $project:{
+        { 
+             $project:{
             fullName:1,
             userName:1,
             subscribersCount:1,
@@ -346,8 +347,7 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
             avatar:1,
             coverImage:1,
             email:1,
-
-        }
+             }
 
         }
     ])
@@ -361,6 +361,64 @@ const getUserChannelProfile=asyncHandler(async(req,res)=>{
     
 })
 
+
+const getWatchHistory=asyncHandler(async(req,res)=>{
+    const user=await User.aggregate([
+        {
+            $match:{
+                //since the string is returned so we need to make sure that the id extracted is in hte correct format
+                _id:new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            //in user we have watchHistory and furthur we have to lookup into videos model to get the id
+            //inside videos model we have owner which extends to user model, so we write a sub-pipleine
+            //with it we extract the only necessary details so that traffic is less
+            //now the returned value is an array so we 
+            $lookup:{
+                from:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner",
+                            pipeline:[
+                                {
+                                    $project:{
+                                        fullName:1,
+                                        userName:1,
+                                        avatar:1
+                                    }
+                                }
+                            ]
+
+                        }
+                    }
+                    ,
+                    {
+                        $addFields:{
+                            owner:{
+                                //first or arrayElemtsAt
+                                $first:"$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res.status(200)
+    .json(new APIResponse(200,user[0].watchHistory,"Watch histroy fetched successfully"))
+})
+
+
+
 export {registerUser,
         loginUser,
         logoutUser,
@@ -370,5 +428,6 @@ export {registerUser,
         updateAccountDetails,
         updateUserAvatar,
         updateUserImage,
-        getUserChannelProfile
+        getUserChannelProfile,
+        getWatchHistory
     }
