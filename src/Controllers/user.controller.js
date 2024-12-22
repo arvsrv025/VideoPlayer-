@@ -4,12 +4,13 @@ import {User} from '../Models/user.model.js';
 import {uploadOnCloudinary} from '../Utils/cloudinary.js';
 import {APIResponse} from '../Utils/APIResponse.js';
 import jwt from "jsonwebtoken" 
+import mongoose from "mongoose"; 
 
 
 const generateAccessandRefreshToken=async(userId)=>{
     try{
         const user=await User.findById(userId)
-        const accessToken=user.generateRefreshToken()
+        const accessToken=user.generateAccessToken()
         const refreshToken=user.generateRefreshToken()
 
          //if we want to save the user deatils then we would have to pass all the details so
@@ -142,14 +143,13 @@ const loginUser=asyncHandler(async(req,res)=>{
 
 
 const logoutUser =  (async(req, res) => { 
-    console.log(req.body)
-    const {user_id}=await req.body._id
+    
 
     await User.findByIdAndUpdate(
-        user_id,
+        req.user._id,
         {
-            $set: {
-                refreshToken: undefined 
+            $unset: {
+                refreshToken: 1
             }
         },
         {
@@ -198,7 +198,12 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
 
 const changeCurrentPassword=asyncHandler(async(req,res)=>{
     const {oldPassword,newPassword}=req.body
-    const user=await User.findById(re.body?._id)
+
+    if (!oldPassword || !newPassword) {
+        throw new APIError(400, "Old password and new password are required");
+    }
+    
+    const user=await User.findById(req.user?._id)
     const iscorrect=await user.isPasswordCorrect(oldPassword)
 
     if(!iscorrect){
